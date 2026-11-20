@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estación de Simulación ECG LM324 | Monitor de Señales de Gran Formato</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ==================================================================== -->
+    <!-- HEADER SUPERIOR ULTRA-COMPACTO (44px) -->
+    <!-- ==================================================================== -->
+    <header class="app-header">
+        <div class="header-brand">
+            <div class="header-brand-logo">❤</div>
+            <div>
+                <h1>
+                    FRONT-END ECG LM324
+                    <span class="badge-pill-topo">WEBSTER FIG. 6.18</span>
+                </h1>
+            </div>
+            <div class="header-meta">
+                Bioinstrumentación (2026) • Alumno: <strong>Carlos Javier Pereyra</strong> (LU: 49671)
+            </div>
+        </div>
+
+        <div class="header-tools-right">
+            <div class="spec-chip">Av Total: <span>835.4 (58.4 dB)</span></div>
+            <div class="spec-chip">Banda: <span>0.048 - 106 Hz</span></div>
+            <div class="spec-chip">CMRR: <span>&ge; 86 dB</span></div>
+            <div class="spec-chip">Offset DC: <span>&plusmn;300 mV máx</span></div>
+
+            <button type="button" id="btn-toggle-circuit-modal" class="btn-open-circuit">
+                <span>📐</span> Esquemático & Bode
+            </button>
+        </div>
+    </header>
+
+    <!-- ==================================================================== -->
+    <!-- LAYOUT PRINCIPAL: CONTROLES + MONITOR GIGANTE -->
+    <!-- ==================================================================== -->
+    <div class="main-app-layout">
+
+        <!-- ================================================================ -->
+        <!-- PANEL LATERAL COMPACTO DE CONTROLES (IZQUIERDA) -->
+        <!-- ================================================================ -->
+        <aside class="sidebar-panel">
+
+            <!-- Card 1: Patrón Electrocardiográfico -->
+            <section class="card-control-box">
+                <div class="card-header-title">
+                    <h2>❤ Ritmo Cardíaco Fisiológico</h2>
+                </div>
+
+                <div class="input-group">
+                    <label for="select-rhythm">Morfología Cardíaca:</label>
+                    <select id="select-rhythm" class="custom-select">
+                        <option value="normal">Ritmo Sinusal Normal (75 BPM)</option>
+                        <option value="bradycardia">Bradicardia Sinusal (45 BPM)</option>
+                        <option value="tachycardia">Taquicardia Sinusal (135 BPM)</option>
+                        <option value="pvc">Arritmia Ventricular (Extrasístole PVC)</option>
+                        <option value="afib">Fibrilación Auricular (AFib Irregular)</option>
+                        <option value="vfib">Fibrilación Ventricular (Emergencia)</option>
+                        <option value="asystole">Asistolia / Paro Cardíaco</option>
+                        <option value="custom">Señal Externa de la Web / PhysioNet</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="range-bpm">
+                        <span>Frecuencia Cardíaca:</span>
+                        <span id="label-bpm" class="badge-val">75 BPM</span>
+                    </label>
+                    <input type="range" id="range-bpm" class="custom-slider" min="30" max="200" value="75">
+                </div>
+
+                <!-- Cargador de Señales de la Web (PhysioNet / MIT-BIH) -->
+                <div class="input-group">
+                    <label>Cargar Registro Web (PhysioNet / CSV):</label>
+                    <div id="drop-zone" class="upload-box">
+                        <strong>Arrastra un archivo aquí</strong>
+                        <p>o haz clic para examinar (.csv, .txt)</p>
+                    </div>
+                    <input type="file" id="file-input" accept=".csv,.txt,.dat" style="display:none;">
+                    <div style="display:flex; gap:5px; margin-top:5px;">
+                        <button type="button" id="btn-load-mit100" class="btn-scope-tool" style="flex:1;">Demo MIT-100</button>
+                        <button type="button" id="btn-load-mit200" class="btn-scope-tool" style="flex:1;">Demo MIT-200 (PVC)</button>
+                    </div>
+                    <div id="file-status" style="font-size:0.7rem; color:#f59e0b; margin-top:4px; font-family:var(--font-mono);"></div>
+                </div>
+
+                <!-- Tarjeta de Diagnóstico Clínico Automático (Revelador de Condición) -->
+                <div id="diagnostic-condition-card" class="diagnostic-condition-card">
+                    <div class="diag-header">
+                        <span class="diag-title-badge">
+                            <span>🩺</span> CONDICIÓN CLÍNICA DETECTADA
+                        </span>
+                        <span id="diag-severity-tag" class="diag-severity-tag" style="background:#10b981; color:#ffffff;">NORMAL</span>
+                    </div>
+
+                    <div id="diag-condition-name" class="diag-condition-name" style="color:#10b981;">
+                        Ritmo Sinusal Normal
+                    </div>
+
+                    <div class="diag-grid-metrics">
+                        <div class="diag-metric-item">
+                            <span class="diag-metric-label">Frecuencia (FC):</span>
+                            <span id="diag-metric-bpm" class="diag-metric-val">75 BPM</span>
+                        </div>
+                        <div class="diag-metric-item">
+                            <span class="diag-metric-label">Intervalo R-R:</span>
+                            <span id="diag-metric-rr" class="diag-metric-val">Regular (24ms)</span>
+                        </div>
+                        <div class="diag-metric-item">
+                            <span class="diag-metric-label">Morfología QRS:</span>
+                            <span id="diag-metric-qrs" class="diag-metric-val">Estrecho (85ms)</span>
+                        </div>
+                        <div class="diag-metric-item">
+                            <span class="diag-metric-label">Latidos / Duración:</span>
+                            <span id="diag-metric-beats" class="diag-metric-val">8 lat. (6.0s)</span>
+                        </div>
+                    </div>
+
+                    <div id="diag-desc-text" class="diag-desc-text">
+                        Ritmo cardíaco fisiológico dentro del rango normotípico (60-100 BPM). Conducción sinusal regular con complejos QRS estrechos y onda T fisiológica.
+                    </div>
+
+                    <div id="diag-circuit-note" class="diag-circuit-note">
+                        <strong>Bioinstrumentación (LM324):</strong> Ganancia global de 835 (58.4 dB). El filtro pasaalto pasivo de 0.048 Hz estabiliza la continua sin distorsionar el segmento ST ni la onda T.
+                    </div>
+                </div>
+            </section>
+
+            <!-- Card 2: Desafíos Reales de Bioinstrumentación -->
+            <section class="card-control-box">
+                <div class="card-header-title">
+                    <h2>⚡ Interferencias Cutáneas</h2>
+                </div>
+
+                <!-- Potencial de Media Celda DC -->
+                <div class="input-group">
+                    <label for="range-dc-offset">
+                        <span>Offset Media Celda (DC):</span>
+                        <span id="label-dc-offset" class="badge-val">+250 mV</span>
+                    </label>
+                    <input type="range" id="range-dc-offset" class="custom-slider" min="-300" max="300" value="250" step="10">
+                    <small style="font-size:0.67rem; color:var(--text-muted); display:block; margin-top:2px;">
+                        OA3 lo eleva a +6.34V sin saturar (&plusmn;7.5V) y el Filtro HP lo bloquea a 0.00V.
+                    </small>
+                </div>
+
+                <!-- Interferencia de Red 50 Hz -->
+                <div class="input-group">
+                    <label for="range-hum50">
+                        <span>Interferencia Red (50 Hz):</span>
+                        <span id="label-hum50" class="badge-val">0.25 mV</span>
+                    </label>
+                    <input type="range" id="range-hum50" class="custom-slider" min="0" max="1.5" value="0.25" step="0.05">
+                </div>
+
+                <!-- Ruido Muscular EMG -->
+                <div class="input-group">
+                    <label for="range-emg">
+                        <span>Ruido Muscular (EMG):</span>
+                        <span id="label-emg" class="badge-val">0.04 mV</span>
+                    </label>
+                    <input type="range" id="range-emg" class="custom-slider" min="0" max="0.2" value="0.04" step="0.01">
+                </div>
+
+                <!-- Deriva Respiratoria -->
+                <div class="input-group">
+                    <label for="range-wander">
+                        <span>Deriva Respiratoria:</span>
+                        <span id="label-wander" class="badge-val">0.15 mV</span>
+                    </label>
+                    <input type="range" id="range-wander" class="custom-slider" min="0" max="0.6" value="0.15" step="0.05">
+                </div>
+            </section>
+
+            <!-- Card 3: Acciones de Circuito -->
+            <section class="card-control-box">
+                <div class="card-header-title">
+                    <h2>🔧 Acciones del LM324</h2>
+                </div>
+
+                <!-- Pulsador Reset S1 -->
+                <div class="input-group">
+                    <button type="button" id="btn-reset-s1" class="btn-reset-huge">
+                        <span>🔴</span>
+                        <span>PULSAR RESET S1 (RESTAURAR 0V)</span>
+                    </button>
+                    <small style="font-size:0.67rem; color:var(--text-muted); display:block; margin-top:3px;">
+                        Descarga instantánea de Chp en &lt;50ms eliminando los 16.5s de recuperación.
+                    </small>
+                </div>
+
+                <!-- Trimpot Calibración CMRR -->
+                <div class="input-group">
+                    <label for="range-trimpot">
+                        <span>Trimpot CMRR (R6):</span>
+                        <span id="label-trimpot" class="badge-val">Calibrado</span>
+                    </label>
+                    <input type="range" id="range-trimpot" class="custom-slider" min="-1" max="1" value="0" step="0.05">
+                </div>
+            </section>
+
+        </aside>
+
+        <!-- ================================================================ -->
+        <!-- MONITOR PRINCIPAL A PANTALLA GIGANTE (MÁXIMA ALTURA VERTICAL) -->
+        <!-- ================================================================ -->
+        <main class="monitor-fullscreen-station">
+
+            <!-- Barra Superior del Monitor -->
+            <div class="monitor-toolbar">
+                <div class="mode-buttons-strip">
+                    <button type="button" class="btn-mode-tab active" data-mode="dual">
+                        <span>⚡</span> 2 CANALES GIGANTES
+                    </button>
+                    <button type="button" class="btn-mode-tab" data-mode="overlay">
+                        <span>☵</span> SUPERPUESTO
+                    </button>
+                    <button type="button" class="btn-mode-tab" data-mode="fft">
+                        <span>📊</span> ESPECTRO FFT
+                    </button>
+                </div>
+
+                <!-- Control de Zoom Vertical de Amplitud (Y-Zoom) -->
+                <div class="y-zoom-controls">
+                    <span style="color:var(--text-muted);">Amplitud (Y):</span>
+                    <button type="button" id="btn-zoom-minus" class="btn-zoom-step">-</button>
+                    <span id="label-zoom-val" style="color:#f59e0b; font-weight:bold; min-width:32px; text-align:center;">1.8x</span>
+                    <button type="button" id="btn-zoom-plus" class="btn-zoom-step">+</button>
+                </div>
+            </div>
+
+            <!-- Pantalla del Monitor de Señales (Ocupa casi toda la altura!) -->
+            <div class="monitor-canvas-container">
+                <canvas id="scope-canvas" class="monitor-canvas"></canvas>
+            </div>
+
+            <!-- Barra Inferior Compacta de Telemetría & Controles -->
+            <div class="monitor-footer-telemetry">
+
+                <div class="telemetry-inline-row">
+                    <div class="telem-pill">
+                        <span class="lbl">FC:</span>
+                        <span id="telem-bpm" class="val" style="color:#f43f5e;">75 BPM</span>
+                    </div>
+                    <div class="telem-pill">
+                        <span class="lbl">1: Vin:</span>
+                        <span id="telem-vin" class="val" style="color:#f59e0b;">1.45 mVpp (+250mV)</span>
+                    </div>
+                    <div class="telem-pill">
+                        <span class="lbl">2: OA3:</span>
+                        <span id="telem-oa3" class="val" style="color:#c084fc;">0.04 Vpp (+6.34V)</span>
+                    </div>
+                    <div class="telem-pill">
+                        <span class="lbl">3: Post-HP:</span>
+                        <span id="telem-hp" class="val" style="color:#10b981;">0.04 Vpp (0.00V DC)</span>
+                    </div>
+                    <div class="telem-pill">
+                        <span class="lbl">4: Vo Final:</span>
+                        <span id="telem-vout" class="val" style="color:#06b6d4;">1.22 Vpp (Av: 835)</span>
+                    </div>
+                </div>
+
+                <div class="monitor-quick-knobs">
+                    <div class="knob-widget">
+                        <span>Base Tiempo:</span>
+                        <select id="select-timebase" class="knob-select">
+                            <option value="50">50 ms/div</option>
+                            <option value="100">100 ms/div</option>
+                            <option value="200" selected>200 ms/div</option>
+                            <option value="500">500 ms/div</option>
+                            <option value="1000">1 s/div</option>
+                        </select>
+                    </div>
+
+                    <button type="button" id="btn-toggle-freeze" class="btn-scope-tool">
+                        ⏸ FREEZE
+                    </button>
+                </div>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- MODAL LIMPIO: ESQUEMÁTICO 2D, BODE & MEMORIA TÉCNICA -->
+    <!-- ==================================================================== -->
+    <div id="circuit-modal" class="circuit-modal-overlay">
+        <div class="circuit-modal-window">
+            <div class="modal-header-strip">
+                <div class="modal-tabs-group">
+                    <button type="button" class="modal-tab-btn active" data-modtab="modtab-schematic">
+                        📐 Esquemático 2D (Webster 6.18)
+                    </button>
+                    <button type="button" class="modal-tab-btn" data-modtab="modtab-bode">
+                        📈 Diagrama de Bode
+                    </button>
+                    <button type="button" class="modal-tab-btn" data-modtab="modtab-theory">
+                        📋 Memoria de Cálculo & Fórmulas
+                    </button>
+                </div>
+                <button type="button" id="btn-close-circuit-modal" class="btn-close-modal">✕</button>
+            </div>
+
+            <div class="modal-content-area">
+
+                <!-- Pestaña 1: Esquemático 2D Interactivo -->
+                <div id="modtab-schematic" class="modal-pane active">
+                    <div id="schematic-2d-container" style="width:100%; height:100%; padding:10px;"></div>
+                </div>
+
+                <!-- Pestaña 2: Diagrama de Bode -->
+                <div id="modtab-bode" class="modal-pane">
+                    <canvas id="canvas-bode" style="width:100%; height:100%;"></canvas>
+                </div>
+
+                <!-- Pestaña 3: Memoria de Cálculo -->
+                <div id="modtab-theory" class="modal-pane theory-scrollable">
+                    <h2>Front-End Analógico de ECG de 4 Etapas con LM324</h2>
+                    <p><strong>Topología:</strong> John G. Webster (<em>Medical Instrumentation: Application and Design</em>, Fig. 6.18).</p>
+                    <p><strong>Alimentación:</strong> Bipolar Simétrica &plusmn;9V mediante baterías alcalinas (masa virtual).</p>
+
+                    <h3>1. Partición Estratégica de Ganancias</h3>
+                    <p>
+                        Para evitar que el potencial electroquímico de media celda (&plusmn;300 mV) sature los amplificadores contra los rieles de &plusmn;9V, la ganancia total nominal de 800 (58 dB) se descompone en:
+                    </p>
+                    <div class="math-box">
+                        Av1 (Etapas 1+2 en DC) = (1 + 2·R1/Rg) &times; (R5/R3) = (1 + 44k/10k) &times; (47k/10k) = 5.4 &times; 4.7 = 25.38 (28.09 dB)<br>
+                        V_oa3_offset = &plusmn;300 mV &times; 25.38 = &plusmn;7.61 V &lt; &plusmn;7.5 V (Margen lineal estricto sin saturar)
+                    </div>
+
+                    <h3>2. Filtro Paso Alto Pasivo y Pulsador de Reset Rápido (S1)</h3>
+                    <p>
+                        Elimina el 100% de la componente continua acumulada antes de la etapa de alta ganancia:
+                    </p>
+                    <div class="math-box">
+                        fL = 1 / (2&pi; &times; Rhp &times; Chp) = 1 / (2&pi; &times; 3.3 M&Omega; &times; 1.0 &mu;F) = 0.0482 Hz<br>
+                        Constante de tiempo &tau; = 3.3 s (Recuperación espontánea: 5&tau; &approx; 16.5 s).<br>
+                        Con pulsador S1 accionado: R_shunt &approx; 10 &Omega; &rarr; &tau; &approx; 10 &mu;s (Restablecimiento en &lt; 50 ms).
+                    </div>
+
+                    <h3>3. Etapa 4: Filtro Paso Bajo Activo No Inversor</h3>
+                    <div class="math-box">
+                        Av2_dc = 1 + Rf4 / Rin4 = 1 + 150 k&Omega; / 4.7 k&Omega; = 32.91 (30.35 dB)<br>
+                        fH = 1 / (2&pi; &times; Rf4 &times; Cf4) = 1 / (2&pi; &times; 150 k&Omega; &times; 10 nF) = 106.1 Hz<br>
+                        Av_total = Av1 &times; Av2 = 25.38 &times; 32.91 = 835.2 (58.44 dB)
+                    </div>
+
+                    <h3>4. Especificaciones Clínicas Cumplidas</h3>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Parámetro</th>
+                                <th>Norma IEC 60601-2-25 / AHA</th>
+                                <th>Medido en Simulador</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Ganancia Total</td>
+                                <td>800 a 1000</td>
+                                <td>835.2 (58.4 dB)</td>
+                            </tr>
+                            <tr>
+                                <td>Banda Pasante (-3 dB)</td>
+                                <td>0.05 Hz a 100 Hz / 150 Hz</td>
+                                <td>0.048 Hz a 106.8 Hz</td>
+                            </tr>
+                            <tr>
+                                <td>Rechazo Modo Común</td>
+                                <td>&ge; 86 dB a 100 Hz</td>
+                                <td>&ge; 88 dB (con trimpot)</td>
+                            </tr>
+                            <tr>
+                                <td>Tolerancia Offset DC</td>
+                                <td>&plusmn;300 mV</td>
+                                <td>&plusmn;300 mV sin clipping</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- SCRIPTS DEL SIMULADOR -->
+    <!-- ==================================================================== -->
+    <div id="diagnostic-output" style="display:none;">INIT</div>
+    <script>
+        window.addEventListener('error', (e) => {
+            const d = document.getElementById('diagnostic-output');
+            if (d) d.textContent = "GLOBAL_ERROR: " + e.message + " in " + e.filename + ":" + e.lineno;
+            console.error("GLOBAL_ERROR:", e.message, e.filename, e.lineno, e.error);
+        });
+    </script>
+    <script src="circuit_engine.js?v=3.0"></script>
+    <script src="ecg_generator.js?v=3.0"></script>
+    <script src="oscilloscope.js?v=3.0"></script>
+    <script src="schematic_2d.js?v=3.0"></script>
+    <script src="bode_viewer.js?v=3.0"></script>
+
+    <script>
+        function startSimulator() {
+            if (window._simulatorInitialized) return;
+            window._simulatorInitialized = true;
+
+            try {
+                const engine = new CircuitEngine();
+                const generator = new ECGGenerator(engine.sampleRate);
+                const oscilloscope = new Oscilloscope('scope-canvas');
+                const schematic = new Schematic2DViewer('schematic-2d-container');
+                const bodeViewer = new BodeViewer('canvas-bode', engine);
+
+            // Modos de Visualización (2 Canales Gigantes, Superpuesto, FFT)
+            const modeTabs = document.querySelectorAll('.btn-mode-tab');
+            modeTabs.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    modeTabs.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const mode = btn.getAttribute('data-mode');
+                    oscilloscope.setDisplayMode(mode);
+                });
+            });
+
+            // Control de Zoom Vertical de Amplitud
+            const labelZoomVal = document.getElementById('label-zoom-val');
+            document.getElementById('btn-zoom-plus').addEventListener('click', () => {
+                const z = oscilloscope.adjustYZoom(0.3);
+                labelZoomVal.textContent = `${z.toFixed(1)}x`;
+            });
+            document.getElementById('btn-zoom-minus').addEventListener('click', () => {
+                const z = oscilloscope.adjustYZoom(-0.3);
+                labelZoomVal.textContent = `${z.toFixed(1)}x`;
+            });
+
+            // Modal de Esquemático & Bode
+            const circuitModal = document.getElementById('circuit-modal');
+            const btnOpenModal = document.getElementById('btn-toggle-circuit-modal');
+            const btnCloseModal = document.getElementById('btn-close-circuit-modal');
+
+            btnOpenModal.addEventListener('click', () => {
+                circuitModal.classList.add('open');
+                bodeViewer.resize();
+            });
+
+            btnCloseModal.addEventListener('click', () => {
+                circuitModal.classList.remove('open');
+            });
+
+            circuitModal.addEventListener('click', (e) => {
+                if (e.target === circuitModal) {
+                    circuitModal.classList.remove('open');
+                }
+            });
+
+            document.querySelectorAll('.modal-tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.modal-tab-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.modal-pane').forEach(p => p.classList.remove('active'));
+
+                    btn.classList.add('active');
+                    const tabId = btn.getAttribute('data-modtab');
+                    const targetPane = document.getElementById(tabId);
+                    if (targetPane) targetPane.classList.add('active');
+
+                    if (tabId === 'modtab-bode') bodeViewer.resize();
+                });
+            });
+
+            // Motor de Diagnóstico Clínico Automático
+            function updateDiagnosticCard(diag) {
+                if (!diag) return;
+                const card = document.getElementById('diagnostic-condition-card');
+                const tag = document.getElementById('diag-severity-tag');
+                const name = document.getElementById('diag-condition-name');
+                const bpm = document.getElementById('diag-metric-bpm');
+                const rr = document.getElementById('diag-metric-rr');
+                const qrs = document.getElementById('diag-metric-qrs');
+                const beats = document.getElementById('diag-metric-beats');
+                const desc = document.getElementById('diag-desc-text');
+                const circuit = document.getElementById('diag-circuit-note');
+
+                if (card) card.style.display = 'block';
+
+                if (tag) {
+                    tag.textContent = (diag.severity || 'NORMAL').toUpperCase();
+                    tag.style.background = diag.color || '#10b981';
+                }
+
+                if (name) {
+                    name.textContent = diag.condition;
+                    name.style.color = diag.color || '#10b981';
+                }
+
+                if (bpm) bpm.textContent = typeof diag.heartRate === 'number' ? `${diag.heartRate} BPM` : diag.heartRate;
+                if (rr) rr.textContent = diag.rrRegularity || 'Regular';
+                if (qrs) qrs.textContent = diag.qrsWidth || 'Estrecho';
+                if (beats) beats.textContent = `${diag.beatsCount || 0} lat. (${(diag.durationSeconds || 6).toFixed(1)}s)`;
+
+                if (desc) desc.textContent = diag.clinicalNotes;
+                if (circuit) {
+                    circuit.innerHTML = `<strong>Bioinstrumentación (LM324):</strong> ${diag.circuitNotes}`;
+                }
+            }
+
+            // Pulsador Reset S1
+            const btnResetS1 = document.getElementById('btn-reset-s1');
+            btnResetS1.addEventListener('mousedown', () => {
+                engine.setResetSwitch(true);
+                schematic.setResetState(true);
+            });
+            window.addEventListener('mouseup', () => {
+                engine.setResetSwitch(false);
+                schematic.setResetState(false);
+            });
+
+            // Controles de Fisiología e Interferencias
+            const selectRhythm = document.getElementById('select-rhythm');
+            selectRhythm.addEventListener('change', (e) => {
+                generator.setRhythm(e.target.value);
+                const diag = generator.getDiagnosisForRhythm(e.target.value, generator.heartRate);
+                updateDiagnosticCard(diag);
+            });
+
+            const rangeBpm = document.getElementById('range-bpm');
+            const labelBpm = document.getElementById('label-bpm');
+            rangeBpm.addEventListener('input', (e) => {
+                const bpm = parseInt(e.target.value);
+                labelBpm.textContent = `${bpm} BPM`;
+                generator.setHeartRate(bpm);
+                if (generator.rhythmType !== 'custom') {
+                    const diag = generator.getDiagnosisForRhythm(generator.rhythmType, bpm);
+                    updateDiagnosticCard(diag);
+                }
+            });
+
+            const rangeDcOffset = document.getElementById('range-dc-offset');
+            const labelDcOffset = document.getElementById('label-dc-offset');
+            rangeDcOffset.addEventListener('input', (e) => {
+                const val = parseInt(e.target.value);
+                labelDcOffset.textContent = `${val > 0 ? '+' : ''}${val} mV`;
+                generator.setDCOffset(val);
+            });
+
+            const rangeHum50 = document.getElementById('range-hum50');
+            const labelHum50 = document.getElementById('label-hum50');
+            rangeHum50.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                labelHum50.textContent = `${val.toFixed(2)} mV`;
+                generator.setHum50Hz(val);
+            });
+
+            const rangeEmg = document.getElementById('range-emg');
+            const labelEmg = document.getElementById('label-emg');
+            rangeEmg.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                labelEmg.textContent = `${val.toFixed(2)} mV`;
+                generator.setEMGNoise(val);
+            });
+
+            const rangeWander = document.getElementById('range-wander');
+            const labelWander = document.getElementById('label-wander');
+            rangeWander.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                labelWander.textContent = `${val.toFixed(2)} mV`;
+                generator.setRespirationWander(val);
+            });
+
+            const rangeTrimpot = document.getElementById('range-trimpot');
+            const labelTrimpot = document.getElementById('label-trimpot');
+            rangeTrimpot.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                engine.setTrimpot(val);
+                if (Math.abs(val) < 0.05) {
+                    labelTrimpot.textContent = "Calibrado";
+                    labelTrimpot.style.color = "#10b981";
+                } else {
+                    labelTrimpot.textContent = `Desbalance ${(val * 100).toFixed(0)}%`;
+                    labelTrimpot.style.color = "#f59e0b";
+                }
+            });
+
+            // Carga de Archivos de la Web y Análisis Diagnóstico
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const fileStatus = document.getElementById('file-status');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    processUploadedFile(e.dataTransfer.files[0]);
+                }
+            });
+
+            fileInput.addEventListener('click', (e) => e.stopPropagation());
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    processUploadedFile(e.target.files[0]);
+                    fileInput.value = '';
+                }
+            });
+
+            function processUploadedFile(file) {
+                fileStatus.textContent = `Leyendo y diagnosticando ${file.name}...`;
+                fileStatus.style.color = '#38bdf8';
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const res = generator.loadWebFile(e.target.result, file.name);
+                        selectRhythm.value = 'custom';
+                        fileStatus.textContent = `✓ ${file.name}: ${res.totalSamples} muestras (${res.durationSeconds.toFixed(1)} s @ ${res.sampleRate} Hz)`;
+                        fileStatus.style.color = '#10b981';
+
+                        // Pre-calentar muestras y resetear la continua del filtro para evitar transitorio RC
+                        for (let k = 0; k < 10; k++) {
+                            const smp = generator.getNextSample();
+                            engine.processSample(smp.vin_diff_V, smp.vin_cm_V);
+                        }
+                        generator.customIndex = 0.0;
+                        engine.resetBaseline();
+                        oscilloscope.clearBuffers();
+
+                        if (res.analysis) {
+                            updateDiagnosticCard(res.analysis);
+                        }
+                    } catch (err) {
+                        fileStatus.textContent = `Error: ${err.message}`;
+                        fileStatus.style.color = '#ef4444';
+                        console.error("Upload error:", err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            document.getElementById('btn-load-mit100').addEventListener('click', () => {
+                const samples = [];
+                for (let i = 0; i < 360 * 6; i++) {
+                    const t = i / 360.0;
+                    const beat = t % 0.8;
+                    const p = 0.14 * Math.exp(-Math.pow((beat - 0.16) / 0.032, 2));
+                    const q = -0.12 * Math.exp(-Math.pow((beat - 0.25) / 0.012, 2));
+                    const r = 1.35 * Math.exp(-Math.pow((beat - 0.28) / 0.016, 2));
+                    const s = -0.22 * Math.exp(-Math.pow((beat - 0.31) / 0.014, 2));
+                    const t_w = 0.28 * Math.exp(-Math.pow((beat - 0.48) / 0.065, 2));
+                    samples.push((p + q + r + s + t_w) + (Math.random() - 0.5) * 0.02);
+                }
+                generator.customData = new Float32Array(samples);
+                generator.customIndex = 0;
+                generator.customSampleRate = 360;
+                generator.rhythmType = 'custom';
+                selectRhythm.value = 'custom';
+                fileStatus.textContent = "✓ MIT-BIH 100 Precargado (Sinusal Clásico)";
+                fileStatus.style.color = '#10b981';
+
+                for (let k = 0; k < 10; k++) {
+                    const smp = generator.getNextSample();
+                    engine.processSample(smp.vin_diff_V, smp.vin_cm_V);
+                }
+                generator.customIndex = 0.0;
+                engine.resetBaseline();
+                oscilloscope.clearBuffers();
+
+                const diag = generator.analyzeECG(samples, 360, "Registro MIT-BIH 100 Ritmo Sinusal Normal");
+                updateDiagnosticCard(diag);
+            });
+
+            document.getElementById('btn-load-mit200').addEventListener('click', () => {
+                const samples = [];
+                for (let i = 0; i < 360 * 6; i++) {
+                    const t = i / 360.0;
+                    const beatIdx = Math.floor(t / 0.75);
+                    const beat = t % 0.75;
+                    if (beatIdx % 3 === 2) {
+                        const r1 = 1.4 * Math.exp(-Math.pow((beat - 0.2) / 0.04, 2));
+                        const s_d = -0.7 * Math.exp(-Math.pow((beat - 0.3) / 0.04, 2));
+                        const t_inv = -0.35 * Math.exp(-Math.pow((beat - 0.5) / 0.07, 2));
+                        samples.push(r1 + s_d + t_inv);
+                    } else {
+                        const p = 0.15 * Math.exp(-Math.pow((beat - 0.18) / 0.035, 2));
+                        const r = 1.25 * Math.exp(-Math.pow((beat - 0.31) / 0.015, 2));
+                        const s = -0.25 * Math.exp(-Math.pow((beat - 0.34) / 0.015, 2));
+                        const t_w = 0.30 * Math.exp(-Math.pow((beat - 0.52) / 0.070, 2));
+                        samples.push(p + r + s + t_w);
+                    }
+                }
+                generator.customData = new Float32Array(samples);
+                generator.customIndex = 0;
+                generator.customSampleRate = 360;
+                generator.rhythmType = 'custom';
+                selectRhythm.value = 'custom';
+                fileStatus.textContent = "✓ MIT-BIH 200 Precargado (Extrasístoles PVC)";
+                fileStatus.style.color = '#10b981';
+
+                for (let k = 0; k < 10; k++) {
+                    const smp = generator.getNextSample();
+                    engine.processSample(smp.vin_diff_V, smp.vin_cm_V);
+                }
+                generator.customIndex = 0.0;
+                engine.resetBaseline();
+                oscilloscope.clearBuffers();
+
+                const diag = generator.analyzeECG(samples, 360, "Registro MIT-BIH 200 Extrasistoles Ventriculares PVC");
+                updateDiagnosticCard(diag);
+            });
+
+            const selectTimebase = document.getElementById('select-timebase');
+            selectTimebase.addEventListener('change', (e) => oscilloscope.setTimeDiv(parseInt(e.target.value)));
+
+            const btnFreeze = document.getElementById('btn-toggle-freeze');
+            btnFreeze.addEventListener('click', () => {
+                const frozen = oscilloscope.toggleFreeze();
+                if (frozen) {
+                    btnFreeze.textContent = "▶ RUN";
+                    btnFreeze.classList.add('freeze-active');
+                } else {
+                    btnFreeze.textContent = "⏸ FREEZE";
+                    btnFreeze.classList.remove('freeze-active');
+                }
+            });
+
+            let lastAnimTime = performance.now();
+            let sampleAccumulator = 0.0;
+
+            const telemBpm = document.getElementById('telem-bpm');
+            const telemVin = document.getElementById('telem-vin');
+            const telemOA3 = document.getElementById('telem-oa3');
+            const telemHP = document.getElementById('telem-hp');
+            const telemVout = document.getElementById('telem-vout');
+
+            let frameCount = 0;
+            const diagEl = document.getElementById('diagnostic-output');
+
+            function mainLoop(now) {
+                try {
+                    frameCount++;
+                    const deltaMs = Math.min(50, Math.max(1, now - lastAnimTime));
+                    lastAnimTime = now;
+
+                    sampleAccumulator += (deltaMs / 1000.0) * engine.sampleRate;
+                    const samplesToRun = Math.min(100, Math.max(0, Math.floor(sampleAccumulator)));
+                    sampleAccumulator -= samplesToRun;
+
+                    for (let i = 0; i < samplesToRun; i++) {
+                        const stim = generator.getNextSample();
+                        const nodes = engine.processSample(stim.vin_diff_V, stim.vin_cm_V);
+                        oscilloscope.pushSample(stim.time, stim.vin_diff_V * 1000.0, nodes);
+                    }
+
+                    oscilloscope.render();
+
+                    telemBpm.textContent = `${oscilloscope.measurements.bpm} BPM`;
+                    telemVin.textContent = `${oscilloscope.measurements.vin_vpp_mV.toFixed(2)} mVpp (${oscilloscope.measurements.vin_dc_mV >= 0 ? '+' : ''}${oscilloscope.measurements.vin_dc_mV.toFixed(0)}mV)`;
+                    telemOA3.textContent = `${oscilloscope.measurements.oa3_vpp_V.toFixed(2)} Vpp (${oscilloscope.measurements.oa3_dc_V >= 0 ? '+' : ''}${oscilloscope.measurements.oa3_dc_V.toFixed(2)}V)`;
+                    telemHP.textContent = `${oscilloscope.measurements.hp_vpp_V.toFixed(2)} Vpp (${oscilloscope.measurements.hp_dc_V >= 0 ? '+' : ''}${oscilloscope.measurements.hp_dc_V.toFixed(2)}V DC)`;
+                    telemVout.textContent = `${oscilloscope.measurements.vout_vpp_V.toFixed(2)} Vpp [DC: ${oscilloscope.measurements.vout_dc_V >= 0 ? '+' : ''}${oscilloscope.measurements.vout_dc_V.toFixed(2)}V] (Av: ${oscilloscope.measurements.measured_gain.toFixed(0)})`;
+
+                    if (diagEl) {
+                        diagEl.textContent = `FRAME: ${frameCount} | BPM: ${oscilloscope.measurements.bpm} | Vin: ${oscilloscope.measurements.vin_vpp_mV.toFixed(2)}mV (DC: ${oscilloscope.measurements.vin_dc_mV.toFixed(1)}mV) | OA3: ${oscilloscope.measurements.oa3_vpp_V.toFixed(2)}V (DC: ${oscilloscope.measurements.oa3_dc_V.toFixed(2)}V) | Vout: ${oscilloscope.measurements.vout_vpp_V.toFixed(2)}V`;
+                    }
+                } catch (err) {
+                    console.error("mainLoop error:", err);
+                    const b = document.createElement('div');
+                    b.style = "position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:white;padding:10px;font-weight:bold;";
+                    b.textContent = "Error en simulador: " + err.message + " (" + (err.stack ? err.stack.split('\n')[0] : '') + ")";
+                    document.body.prepend(b);
+                }
+
+                requestAnimationFrame(mainLoop);
+            }
+
+            // Inicializar diagnóstico de condición clínica por defecto
+            updateDiagnosticCard(generator.getDiagnosisForRhythm('normal', 75));
+
+            requestAnimationFrame(mainLoop);
+            } catch (initErr) {
+                console.error("Init error:", initErr);
+                const b = document.createElement('div');
+                b.style = "position:fixed;top:0;left:0;right:0;z-index:99999;background:red;color:white;padding:12px;font-weight:bold;font-size:16px;text-align:center;";
+                b.textContent = "Error al iniciar el simulador: " + initErr.message + " (" + (initErr.stack ? initErr.stack.split('\n')[0] : '') + ")";
+                document.body.prepend(b);
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startSimulator);
+        } else {
+            startSimulator();
+        }
+    </script>
+</body>
+</html>
